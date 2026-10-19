@@ -1,0 +1,294 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Leave Management</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            color: #1f2937;
+        }
+        header {
+            background: #243b80;
+            color: white;
+            padding: 24px 8%;
+        }
+        header h1 { margin: 0 0 8px; }
+        header p { margin: 0; color: #dbeafe; }
+        main { max-width: 1000px; margin: 32px auto; padding: 0 20px; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 18px;
+        }
+        .card, .panel {
+            background: white;
+            padding: 22px;
+            border-radius: 12px;
+            box-shadow: 0 3px 14px #0000000b;
+        }
+        .card h3 { margin-top: 0; color: #64748b; font-size: 15px; }
+        .card strong { font-size: 27px; color: #243b80; }
+        .panel { margin-top: 24px; }
+        .panel h2 { margin-top: 0; }
+        label { display: block; margin: 14px 0 6px; font-weight: bold; }
+        input, select, textarea {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            font: inherit;
+        }
+        button {
+            margin-top: 18px;
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 7px;
+            background: #243b80;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .note { color: #64748b; font-size: 14px; }
+        footer { text-align: center; padding: 24px; color: #64748b; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Employee Leave Management</h1>
+        <p>Manage leave applications and track request status</p>
+    </header>
+
+    <main>
+        <section class="cards">
+            <div class="card">
+                <h3>System</h3>
+                <strong>Online</strong>
+            </div>
+            <div class="card">
+                <h3>Leave Types</h3>
+                <strong>4</strong>
+            </div>
+            <div class="card">
+                <h3>Request Status</h3>
+                <strong>Track</strong>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Apply for Leave</h2>
+            <p class="note">Enter your employee ID and leave details.</p>
+
+            <form id="leaveForm">
+                <label for="employeeId">Employee ID</label>
+                <input id="employeeId" type="number" min="1" value="2" required>
+
+                <label for="leaveType">Leave Type</label>
+                <select id="leaveType" required>
+                    <option value="CASUAL">Casual</option>
+                    <option value="SICK">Sick</option>
+                    <option value="EARNED">Earned</option>
+                    <option value="OTHER">Other</option>
+                </select>
+
+                <label for="startDate">Start Date</label>
+                <input id="startDate" type="date" required>
+
+                <label for="endDate">End Date</label>
+                <input id="endDate" type="date" required>
+
+                <label for="reason">Reason</label>
+                <textarea id="reason" rows="3" required></textarea>
+
+                <button type="submit">Submit Leave Request</button>
+            </form>
+            <p id="message" role="status"></p>
+        </section>
+
+        <section class="panel">
+            <h2>My Leave History</h2>
+            <label for="historyEmployeeId">Employee ID</label>
+            <input id="historyEmployeeId" type="number" min="1" value="2">
+            <button id="historyButton" type="button">View Leave History</button>
+            <div id="historyResult" aria-live="polite"></div>
+        </section>
+    </main>
+
+    
+<section class="panel">
+    <h2>Admin Panel</h2>
+    <p class="note">Review pending employee leave requests.</p>
+
+    <label for="adminId">Admin Employee ID</label>
+    <input id="adminId" type="number" min="1" value="3" required>
+
+    <button id="pendingButton" type="button">
+        Load Pending Requests
+    </button>
+
+    <div id="adminResult" aria-live="polite"></div>
+</section>
+
+
+    <footer>ShadowFox Intermediate Project · Employee Leave Management System</footer>
+
+    <script>
+        const message = document.getElementById("message");
+
+        document.getElementById("leaveForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            message.textContent = "Submitting request...";
+
+            const employeeId = document.getElementById("employeeId").value;
+            const payload = {
+                leaveType: document.getElementById("leaveType").value,
+                startDate: document.getElementById("startDate").value,
+                endDate: document.getElementById("endDate").value,
+                reason: document.getElementById("reason").value.trim()
+            };
+
+            try {
+                const response = await fetch(`/api/leaves/employee/${employeeId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || data.detail || data.error || "Request failed. Check the entered details.");
+                }
+
+                message.textContent = `Leave request submitted! Request ID: ${data.id}. Status: ${data.status}.`;
+                event.target.reset();
+                document.getElementById("employeeId").value = employeeId;
+            } catch (error) {
+                message.textContent = error.message || "Could not connect to the server.";
+            }
+        });
+
+        document.getElementById("historyButton").addEventListener("click", async () => {
+            const employeeId = document.getElementById("historyEmployeeId").value;
+            const result = document.getElementById("historyResult");
+            result.textContent = "Loading history...";
+
+            try {
+                const response = await fetch(`/api/leaves/employee/${employeeId}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error("Could not load leave history.");
+
+                if (!data.length) {
+                    result.textContent = "No leave requests found.";
+                    return;
+                }
+
+                result.replaceChildren();
+                data.forEach((leave) => {
+                    const item = document.createElement("div");
+                    item.className = "card";
+                    item.style.marginTop = "14px";
+
+                    const heading = document.createElement("h3");
+                    heading.textContent = `Request #${leave.id} — ${leave.status}`;
+
+                    const details = document.createElement("p");
+                    details.textContent =
+                        `${leave.leaveType}: ${leave.startDate} to ${leave.endDate}`;
+
+                    const reason = document.createElement("p");
+                    reason.textContent = `Reason: ${leave.reason}`;
+
+                    item.append(heading, details, reason);
+                    result.appendChild(item);
+                });
+            } catch (error) {
+                result.textContent = error.message || "Could not connect to the server.";
+            }
+        });
+        
+document.getElementById("pendingButton").addEventListener("click", async () => {
+    const result = document.getElementById("adminResult");
+    result.textContent = "Loading pending requests...";
+
+    try {
+        const response = await fetch("/api/leaves/status/PENDING");
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error("Could not load pending requests.");
+        }
+
+        if (data.length === 0) {
+            result.textContent = "No pending leave requests.";
+            return;
+        }
+
+        result.replaceChildren();
+
+        data.forEach((leave) => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.style.marginTop = "14px";
+
+            const heading = document.createElement("h3");
+            heading.textContent = `Request #${leave.id} — ${leave.status}`;
+
+            const details = document.createElement("p");
+            details.textContent =
+                `${leave.leaveType}: ${leave.startDate} to ${leave.endDate}`;
+
+            const reason = document.createElement("p");
+            reason.textContent = `Reason: ${leave.reason}`;
+
+            const approveButton = document.createElement("button");
+            approveButton.textContent = "Approve";
+
+            const rejectButton = document.createElement("button");
+            rejectButton.textContent = "Reject";
+            rejectButton.style.marginLeft = "10px";
+            rejectButton.style.background = "#b91c1c";
+
+            async function reviewLeave(approve) {
+                const adminId = document.getElementById("adminId").value;
+                const comment = approve ? "Approved" : "Rejected";
+
+                try {
+                    const reviewResponse = await fetch(
+                        `/api/leaves/${leave.id}/review?adminId=${encodeURIComponent(adminId)}&approve=${approve}&comment=${encodeURIComponent(comment)}`,
+                        { method: "PUT" }
+                    );
+
+                    if (!reviewResponse.ok) {
+                        const error = await reviewResponse.text();
+                        throw new Error(error || "Review failed.");
+                    }
+
+                    heading.textContent =
+                        `Request #${leave.id} — ${approve ? "APPROVED" : "REJECTED"}`;
+
+                    approveButton.disabled = true;
+                    rejectButton.disabled = true;
+                } catch (error) {
+                    alert(error.message || "Could not review the request.");
+                }
+            }
+
+            approveButton.addEventListener("click", () => reviewLeave(true));
+            rejectButton.addEventListener("click", () => reviewLeave(false));
+
+            card.append(heading, details, reason, approveButton, rejectButton);
+            result.appendChild(card);
+        });
+    } catch (error) {
+        result.textContent = error.message || "Could not load pending requests.";
+    }
+});
+
+    </script>
+</body>
+</html>
